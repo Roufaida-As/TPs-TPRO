@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSP Visualizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+            font-size: 28px;
+        }
+        .controls {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        label {
+            font-size: 13px;
+            color: #555;
+            font-weight: 500;
+        }
+        input[type="number"] {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 80px;
+            font-size: 14px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #34495e;
+        }
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-size: 15px;
+            font-weight: 500;
+            color: #7f8c8d;
+            transition: all 0.3s;
+        }
+        .tab.active {
+            color: #2c3e50;
+            border-bottom-color: #2c3e50;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .step-by-step {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .step-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        .step-controls select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .visualization-box {
+            flex: 1;
+            min-width: 500px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 20px;
+            background: #fafafa;
+        }
+        .viz-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            display: block;
+            margin: 0 auto;
+        }
+        .stats {
+            margin-top: 15px;
+            padding: 12px;
+            background: white;
+            border-radius: 4px;
+            border-left: 3px solid #2c3e50;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 14px;
+        }
+        .stat-label {
+            color: #555;
+        }
+        .stat-value {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: center;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .chart-container {
+            margin-top: 30px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .chart-box {
+            flex: 1;
+            min-width: 400px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TSP Visualizer - Exact vs Held-Karp</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>n min</label>
+                <input type="number" id="nMin" value="4" min="4">
+            </div>
+            <div class="control-group">
+                <label>n max</label>
+                <input type="number" id="nMax" value="12" min="4">
+            </div>
+            <div class="control-group">
+                <label>Distance min</label>
+                <input type="number" id="distMin" value="10" min="1">
+            </div>
+            <div class="control-group">
+                <label>Distance max</label>
+                <input type="number" id="distMax" value="50" min="1">
+            </div>
+            <button id="runBtn">Lancer les tests</button>
+            <button id="exportBtn" disabled>Exporter CSV</button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="stepByStep">Visualisation pas à pas</button>
+            <button class="tab" data-tab="comparison">Tableau comparatif</button>
+        </div>
+
+        <div id="stepByStep" class="tab-content active">
+            <div class="step-controls">
+                <label>Sélectionner n:</label>
+                <select id="nSelect">
+                    <option>Lancez d'abord les tests</option>
+                </select>
+                <button id="prevBtn" disabled>← Précédent</button>
+                <button id="nextBtn" disabled>Suivant →</button>
+            </div>
+            <div class="step-by-step">
+                <div class="visualization-box">
+                    <div class="viz-title">Méthode Exacte (Brute Force)</div>
+                    <canvas id="exactCanvas" width="500" height="500"></canvas>
+                    <div class="stats">
+                        <div class="stat-row">
+                            <span class="stat-label">Coût optimal:</span>
+                            <span class="stat-value" id="exactCost">-</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Temps d'exécution:</span>
+                            <span class="stat-value" id="exactTime">-</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Cycle hamiltonien:</span>
+                            <span class="stat-value" id="exactPath">-</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="visualization-box">
+                    <div class="viz-title">Méthode Held-Karp (Programmation Dynamique)</div>
+                    <canvas id="heldCanvas" width="500" height="500"></canvas>
+                    <div class="stats">
+                        <div class="stat-row">
+                            <span class="stat-label">Coût optimal:</span>
+                            <span class="stat-value" id="heldCost">-</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Temps d'exécution:</span>
+                            <span class="stat-value" id="heldTime">-</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Cycle hamiltonien:</span>
+                            <span class="stat-value" id="heldPath">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="comparison" class="tab-content">
+            <table id="resultsTable">
+                <thead>
+                    <tr>
+                        <th>n</th>
+                        <th>Coût Exact</th>
+                        <th>Temps Exact (s)</th>
+                        <th>Coût Held-Karp</th>
+                        <th>Temps Held-Karp (s)</th>
+                        <th>Différence Temps</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="6" class="loading">Aucun résultat. Lancez les tests.</td></tr>
+                </tbody>
+            </table>
+            <div class="chart-container">
+                <div class="chart-box">
+                    <canvas id="timeChart" width="500" height="300"></canvas>
+                </div>
+                <div class="chart-box">
+                    <canvas id="costChart" width="500" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allResults = [];
+        let currentIndex = 0;
+
+        // Tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // TSP Algorithms
+        function randomDistMatrix(n, minD, maxD) {
+            const dist = Array(n).fill(0).map(() => Array(n).fill(0));
+            for (let i = 0; i < n; i++) {
+                for (let j = i + 1; j < n; j++) {
+                    const d = Math.floor(Math.random() * (maxD - minD + 1)) + minD;
+                    dist[i][j] = dist[j][i] = d;
+                }
+            }
+            return dist;
+        }
+
+        function* permutations(arr) {
+            if (arr.length <= 1) yield arr;
+            else {
+                for (let i = 0; i < arr.length; i++) {
+                    const rest = [...arr.slice(0, i), ...arr.slice(i + 1)];
+                    for (const perm of permutations(rest)) {
+                        yield [arr[i], ...perm];
+                    }
+                }
+            }
+        }
+
+        function exactTSP(dist) {
+            const n = dist.length;
+            let bestCost = Infinity;
+            let bestPath = null;
+            const cities = Array.from({length: n - 1}, (_, i) => i + 1);
+            
+            for (const perm of permutations(cities)) {
+                let cost = dist[0][perm[0]];
+                for (let i = 0; i < perm.length - 1; i++) {
+                    cost += dist[perm[i]][perm[i + 1]];
+                }
+                cost += dist[perm[perm.length - 1]][0];
+                
+                if (cost < bestCost) {
+                    bestCost = cost;
+                    bestPath = [0, ...perm, 0];
+                }
+            }
+            return {cost: bestCost, path: bestPath};
+        }
+
+        function heldKarp(dist) {
+            const n = dist.length;
+            const C = new Map();
+            const parent = new Map();
+            
+            for (let j = 1; j < n; j++) {
+                C.set(`${1 << j},${j}`, dist[0][j]);
+                parent.set(`${1 << j},${j}`, 0);
+            }
+            
+            for (let size = 2; size < n; size++) {
+                for (const subset of combinations(Array.from({length: n - 1}, (_, i) => i + 1), size)) {
+                    const bits = subset.reduce((acc, x) => acc | (1 << x), 0);
+                    for (const j of subset) {
+                        const prev = bits & ~(1 << j);
+                        let minCost = Infinity;
+                        let minK = -1;
+                        for (const k of subset) {
+                            if (k !== j) {
+                                const key = `${prev},${k}`;
+                                if (C.has(key)) {
+                                    const cost = C.get(key) + dist[k][j];
+                                    if (cost < minCost) {
+                                        minCost = cost;
+                                        minK = k;
+                                    }
+                                }
+                            }
+                        }
+                        if (minCost !== Infinity) {
+                            C.set(`${bits},${j}`, minCost);
+                            parent.set(`${bits},${j}`, minK);
+                        }
+                    }
+                }
+            }
+            
+            const allBits = (1 << n) - 2;
+            let minCost = Infinity;
+            let lastCity = -1;
+            for (let j = 1; j < n; j++) {
+                const key = `${allBits},${j}`;
+                if (C.has(key)) {
+                    const cost = C.get(key) + dist[j][0];
+                    if (cost < minCost) {
+                        minCost = cost;
+                        lastCity = j;
+                    }
+                }
+            }
+            
+            // Reconstruct path
+            const path = [0];
+            let bits = allBits;
+            let current = lastCity;
+            while (current !== 0) {
+                path.push(current);
+                const key = `${bits},${current}`;
+                const prev = parent.get(key);
+                bits = bits & ~(1 << current);
+                current = prev;
+            }
+            path.push(0);
+            
+            return {cost: minCost, path: path};
+        }
+
+        function* combinations(arr, k) {
+            if (k === 0) yield [];
+            else if (arr.length >= k) {
+                const [first, ...rest] = arr;
+                for (const combo of combinations(rest, k - 1)) {
+                    yield [first, ...combo];
+                }
+                for (const combo of combinations(rest, k)) {
+                    yield combo;
+                }
+            }
+        }
+
+        function drawArrow(ctx, x1, y1, x2, y2) {
+            const headlen = 10;
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            
+            // Draw line
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            
+            // Draw arrow head
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.stroke();
+        }
+
+        function drawTSP(canvas, points, dist, path, pathColor) {
+            const ctx = canvas.getContext('2d');
+            const n = points.length;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw all edges (gray, thin)
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 1;
+            ctx.font = '10px sans-serif';
+            ctx.fillStyle = '#999';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            for (let i = 0; i < n; i++) {
+                for (let j = i + 1; j < n; j++) {
+                    const p1 = points[i];
+                    const p2 = points[j];
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.stroke();
+                    
+                    // Draw edge weight
+                    const midX = (p1.x + p2.x) / 2;
+                    const midY = (p1.y + p2.y) / 2;
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(midX - 10, midY - 8, 20, 16);
+                    ctx.fillStyle = '#666';
+                    ctx.fillText(dist[i][j], midX, midY);
+                }
+            }
+            
+            // Draw Hamiltonian cycle with arrows
+            ctx.strokeStyle = pathColor;
+            ctx.lineWidth = 3;
+            for (let i = 0; i < path.length - 1; i++) {
+                const p1 = points[path[i]];
+                const p2 = points[path[i + 1]];
+                
+                // Calculate offset to avoid overlap with nodes
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                const offset = 12;
+                const x1 = p1.x + (dx / len) * offset;
+                const y1 = p1.y + (dy / len) * offset;
+                const x2 = p2.x - (dx / len) * offset;
+                const y2 = p2.y - (dy / len) * offset;
+                
+                drawArrow(ctx, x1, y1, x2, y2);
+            }
+            
+            // Draw points
+            points.forEach((p, i) => {
+                // Outer circle
+                ctx.fillStyle = i === 0 ? '#e74c3c' : '#34495e';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 10, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                // Inner text
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(i, p.x, p.y);
+            });
+        }
+
+        async function runTests() {
+            const nMin = parseInt(document.getElementById('nMin').value);
+            const nMax = parseInt(document.getElementById('nMax').value);
+            const distMin = parseInt(document.getElementById('distMin').value);
+            const distMax = parseInt(document.getElementById('distMax').value);
+
+            if (nMin < 4 || nMax < nMin) {
+                alert('n min doit être >= 4 et n max > n min');
+                return;
+            }
+
+            document.getElementById('runBtn').disabled = true;
+            allResults = [];
+
+            for (let n = nMin; n <= nMax; n++) {
+                const dist = randomDistMatrix(n, distMin, distMax);
+                const points = Array.from({length: n}, () => ({
+                    x: Math.random() * 400 + 50,
+                    y: Math.random() * 400 + 50
+                }));
+
+                const t1 = performance.now();
+                const exact = exactTSP(dist);
+                const t2 = performance.now();
+                const exactTime = (t2 - t1) / 1000;
+
+                const t3 = performance.now();
+                const held = heldKarp(dist);
+                const t4 = performance.now();
+                const heldTime = (t4 - t3) / 1000;
+
+                allResults.push({n, dist, points, exact, exactTime, held, heldTime});
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+
+            document.getElementById('runBtn').disabled = false;
+            document.getElementById('exportBtn').disabled = false;
+            updateUI();
+        }
+
+        function updateUI() {
+            // Update select
+            const select = document.getElementById('nSelect');
+            select.innerHTML = allResults.map((r, i) => 
+                `<option value="${i}">n = ${r.n}</option>`
+            ).join('');
+            document.getElementById('prevBtn').disabled = false;
+            document.getElementById('nextBtn').disabled = false;
+            
+            // Update table
+            const tbody = document.querySelector('#resultsTable tbody');
+            tbody.innerHTML = allResults.map(r => `
+                <tr>
+                    <td>${r.n}</td>
+                    <td>${r.exact.cost}</td>
+                    <td>${r.exactTime.toFixed(6)}</td>
+                    <td>${r.held.cost}</td>
+                    <td>${r.heldTime.toFixed(6)}</td>
+                    <td>${(r.exactTime / r.heldTime).toFixed(2)}x</td>
+                </tr>
+            `).join('');
+
+            drawCharts();
+            showStep(0);
+        }
+
+        function showStep(index) {
+            if (index < 0 || index >= allResults.length) return;
+            currentIndex = index;
+            document.getElementById('nSelect').value = index;
+            
+            const r = allResults[index];
+            
+            // Draw visualizations
+            drawTSP(document.getElementById('exactCanvas'), r.points, r.dist, r.exact.path, '#3498db');
+            drawTSP(document.getElementById('heldCanvas'), r.points, r.dist, r.held.path, '#2c3e50');
+            
+            // Update stats
+            document.getElementById('exactCost').textContent = r.exact.cost;
+            document.getElementById('exactTime').textContent = r.exactTime.toFixed(6) + 's';
+            document.getElementById('exactPath').textContent = r.exact.path.join(' → ');
+            document.getElementById('heldCost').textContent = r.held.cost;
+            document.getElementById('heldTime').textContent = r.heldTime.toFixed(6) + 's';
+            document.getElementById('heldPath').textContent = r.held.path.join(' → ');
+        }
+
+        function drawCharts() {
+            const ns = allResults.map(r => r.n);
+            const exactTimes = allResults.map(r => r.exactTime);
+            const heldTimes = allResults.map(r => r.heldTime);
+            const exactCosts = allResults.map(r => r.exact.cost);
+            const heldCosts = allResults.map(r => r.held.cost);
+
+            drawLineChart('timeChart', ns, 
+                [{label: 'Exact', data: exactTimes, color: '#3498db'},
+                 {label: 'Held-Karp', data: heldTimes, color: '#2c3e50'}],
+                'Temps d\'exécution (s)');
+            
+            drawLineChart('costChart', ns,
+                [{label: 'Exact', data: exactCosts, color: '#3498db'},
+                 {label: 'Held-Karp', data: heldCosts, color: '#2c3e50'}],
+                'Coûts optimaux');
+        }
+
+        function drawLineChart(canvasId, xData, series, title) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            const padding = 50;
+
+            ctx.clearRect(0, 0, w, h);
+
+            const allYValues = series.flatMap(s => s.data);
+            const maxY = Math.max(...allYValues);
+            const minY = Math.min(...allYValues);
+            const maxX = Math.max(...xData);
+            const minX = Math.min(...xData);
+
+            // Draw axes
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, h - padding);
+            ctx.lineTo(w - padding, h - padding);
+            ctx.stroke();
+
+            // Draw lines
+            series.forEach(s => {
+                ctx.strokeStyle = s.color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                s.data.forEach((y, i) => {
+                    const x = padding + ((xData[i] - minX) / (maxX - minX)) * (w - 2 * padding);
+                    const py = h - padding - ((y - minY) / (maxY - minY + 0.0001)) * (h - 2 * padding);
+                    if (i === 0) ctx.moveTo(x, py);
+                    else ctx.lineTo(x, py);
+                });
+                ctx.stroke();
+
+                // Draw points
+                s.data.forEach((y, i) => {
+                    const x = padding + ((xData[i] - minX) / (maxX - minX)) * (w - 2 * padding);
+                    const py = h - padding - ((y - minY) / (maxY - minY + 0.0001)) * (h - 2 * padding);
+                    ctx.fillStyle = s.color;
+                    ctx.beginPath();
+                    ctx.arc(x, py, 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+            });
+
+            // Title
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = 'bold 14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(title, w / 2, 25);
+
+            // Legend
+            let legendX = w - padding - 100;
+            series.forEach((s, i) => {
+                ctx.fillStyle = s.color;
+                ctx.fillRect(legendX, 40 + i * 20, 15, 3);
+                ctx.fillStyle = '#2c3e50';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText(s.label, legendX + 20, 43 + i * 20);
+            });
+        }
+
+        // Event listeners
+        document.getElementById('runBtn').addEventListener('click', runTests);
+        document.getElementById('nSelect').addEventListener('change', (e) => {
+            showStep(parseInt(e.target.value));
+        });
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            if (currentIndex > 0) showStep(currentIndex - 1);
+        });
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            if (currentIndex < allResults.length - 1) showStep(currentIndex + 1);
+        });
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const csv = ['n,exact_cost,exact_time,held_cost,held_time'];
+            allResults.forEach(r => {
+                csv.push(`${r.n},${r.exact.cost},${r.exactTime},${r.held.cost},${r.heldTime}`);
+            });
+            const blob = new Blob([csv.join('\n')], {type: 'text/csv'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'tsp_results.csv';
+            a.click();
+        });
+    </script>
+</body>
+</html>
