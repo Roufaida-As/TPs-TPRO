@@ -12,11 +12,13 @@
 #include <string.h>
 #include <time.h>
 
-// ===== MODIFICATIONS POUR WINDOWS =====
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#pragma comment(lib, "ws2_32.lib")
-// ======================================
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <netdb.h>
 
 #define max(a,b) ((a) > (b) ? (a) : (b))
 
@@ -52,7 +54,7 @@ int di[8] = { 0,+1,+1,+1, 0,-1,-1,-1 } ;
 int dj[8] = {+1,+1, 0,-1,-1,-1, 0,+1 } ;
 
 // default game parameters
-int tmo = 5;  // timeout allowed to the player (actually not used)
+int tmo = 10;  // timeout allowed to the player (actually not used)
 int N = 7;    // grid size ( N x N )
 int M = 4;    // length of winning alignment in the 8 directions
 int HMAX = 2; // maximum exploration depth
@@ -62,18 +64,10 @@ int HMAX = 2; // maximum exploration depth
 
 int main( int argc , char *argv[] )
 {
-    // ===== INITIALISATION WINSOCK =====
-    WSADATA wsa;
-    if (WSAStartup(MAKEWORD(2,2), &wsa) != 0) {
-        printf("Erreur initialisation Winsock: %d\n", WSAGetLastError());
-        return 1;
-    }
-    // ==================================
-
     // socket to connect with the game server
-    SOCKET client_sock;  // SOCKET au lieu de int
+    int client_sock;
     struct sockaddr_in server_addr, client_addr;
-    int client_addr_len = sizeof(client_addr);  // int au lieu de socklen_t
+    socklen_t client_addr_len = sizeof(client_addr);
     char ip_serv[40];
     int port_serv, port_client;
 
@@ -119,24 +113,21 @@ int main( int argc , char *argv[] )
 
     // Connect to server ...
     client_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (client_sock == INVALID_SOCKET) {
-        printf("Erreur creation socket: %d\n", WSAGetLastError());
-        WSACleanup();
+    if (client_sock == -1) {
+        perror("Erreur creation socket");
         return 1;
     }
 
-    if (connect(client_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
-        printf("Erreur connexion: %d\n", WSAGetLastError());
-        closesocket(client_sock);
-        WSACleanup();
+    if (connect(client_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
+        perror("Erreur connexion");
+        close(client_sock);
         return 1;
     }
 
     // get informations on client socket
     if (getsockname(client_sock, (struct sockaddr *)&client_addr, &client_addr_len) == -1) {
        perror("Erreur lors de la récupération des informations du socket");
-       closesocket(client_sock);  // closesocket au lieu de close
-       WSACleanup();
+       close(client_sock);
        exit(EXIT_FAILURE);
     }
     // client port number
@@ -198,7 +189,7 @@ int main( int argc , char *argv[] )
             // gameover
             sscanf( buf+15, " %d", &val);
             printf("received an end_of_game: gameover cost = %d\n", val);
-            closesocket( client_sock );  // closesocket au lieu de close
+            close( client_sock );
             break;
         }
 
@@ -210,7 +201,7 @@ int main( int argc , char *argv[] )
         i = c.i;
         j = c.j;
         if ( i == -1 ) {
-            closesocket( client_sock );  // closesocket au lieu de close
+            close( client_sock );
             break;
         }
 
@@ -221,9 +212,7 @@ int main( int argc , char *argv[] )
 
     } // end_while (1)
 
-    // ===== NETTOYAGE WINSOCK =====
-    WSACleanup();
-    // =============================
+
 
     return 0;
 

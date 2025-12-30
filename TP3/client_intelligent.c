@@ -1,5 +1,3 @@
-// TP3 TPRO - Client TicTacToe NxN
-// ESI 2CS - 2025
 // Version complète : Hidouci / Hadim + corrections (estimation + timeout)
 
 #include <stdio.h>
@@ -7,9 +5,12 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#pragma comment(lib, "ws2_32.lib")
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <netdb.h>
 
 #define max(a,b) ((a) > (b) ? (a) : (b))
 #define elt(t,i,j) (t)[(i)*(N)+(j)]
@@ -34,7 +35,7 @@ void affect(Conf *dest, Conf src);
 int di[8] = {0,+1,+1,+1,0,-1,-1,-1};
 int dj[8] = {+1,+1,0,-1,-1,-1,0,+1};
 
-int tmo = 5;   // temps max par coup (sec)
+int tmo = 10;   // temps max par coup (sec)
 int N = 7;     // taille du plateau
 int M = 4;     // alignement gagnant
 int HMAX = 2;  // profondeur max
@@ -44,13 +45,8 @@ clock_t start_time; // pour le timeout
 // === MAIN === //
 int main(int argc, char *argv[])
 {
-    WSADATA wsa;
-    if (WSAStartup(MAKEWORD(2,2), &wsa) != 0) {
-        printf("Erreur Winsock\n");
-        return 1;
-    }
 
-    SOCKET client_sock;
+    int client_sock;
     struct sockaddr_in server_addr, client_addr;
     int client_addr_len = sizeof(client_addr);
     char ip_serv[40];
@@ -90,7 +86,7 @@ int main(int argc, char *argv[])
     inet_pton(AF_INET, ip_serv, &server_addr.sin_addr);
 
     client_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (connect(client_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
+    if (connect(client_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
         printf("Erreur connexion.\n");
         return 1;
     }
@@ -124,8 +120,7 @@ int main(int argc, char *argv[])
         } else {
             sscanf(buf+15, " %d", &val);
             printf("Game over, cost=%d\n", val);
-            closesocket(client_sock);
-            WSACleanup();
+            close(client_sock);
             return 0;
         }
 
@@ -138,8 +133,7 @@ int main(int argc, char *argv[])
         printf("my move: %c at %d %d (score=%.2f)\n", pl, c.i, c.j, c.score);
     }
 
-    closesocket(client_sock);
-    WSACleanup();
+    close(client_sock);
     return 0;
 }
 

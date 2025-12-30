@@ -7,11 +7,12 @@
 #include <string.h>
 #include <time.h>
 
-// ===== MODIFICATIONS POUR WINDOWS =====
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#pragma comment(lib, "ws2_32.lib")
-// ======================================
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <netdb.h>
 
 
 // to access t[i][j]
@@ -57,14 +58,14 @@ int dj[8] = {+1,+1, 0,-1,-1,-1, 0,+1 } ;
 
 // default game-parameter values ...
 // timeout (in seconds) for each player
-int tmo = 5;
+int tmo = 10;
 // grid size
 int N = 7;
 //winning alignment length
 int M = 4; /* length of the winning alignment : M <= N */
 
 // sockets
-SOCKET server_sock, client1_sock, client2_sock;
+int server_sock, client1_sock, client2_sock;
 struct sockaddr_in server_addr, client1_addr, client2_addr;
 int addr_size;
 
@@ -79,14 +80,6 @@ char n2[40];
 
 int main( int argc , char *argv[] )
 {
-    // ===== INITIALISATION WINSOCK =====
-    WSADATA wsa;
-    if (WSAStartup(MAKEWORD(2,2), &wsa) != 0) {
-        printf("Erreur initialisation Winsock: %d\n", WSAGetLastError());
-        return 1;
-    }
-    // ==================================
-
     Conf c;
     char ch[20];
 
@@ -106,9 +99,8 @@ int main( int argc , char *argv[] )
 
     // Create the server socket (type:tcp)
     server_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_sock == INVALID_SOCKET) {
-        printf("Erreur creation socket: %d\n", WSAGetLastError());
-        WSACleanup();
+    if (server_sock == -1) {
+        perror("Erreur creation socket");
         return 1;
     }
 
@@ -117,18 +109,16 @@ int main( int argc , char *argv[] )
     server_addr.sin_port = htons(12345);        // server port number = 12345
     server_addr.sin_addr.s_addr = INADDR_ANY;   // Listen on all interfaces
     
-    if (bind(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
-        printf("Erreur bind: %d\n", WSAGetLastError());
-        closesocket(server_sock);
-        WSACleanup();
+    if (bind(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
+        perror("Erreur bind");
+        close(server_sock);
         return 1;
     }
 
     // wait for clients to connect ...
-    if (listen(server_sock, 2) == SOCKET_ERROR) {
-        printf("Erreur listen: %d\n", WSAGetLastError());
-        closesocket(server_sock);
-        WSACleanup();
+    if (listen(server_sock, 2) == -1) {
+        perror("Erreur listen");
+        close(server_sock);
         return 1;
     }
 
@@ -137,13 +127,12 @@ int main( int argc , char *argv[] )
 
     addr_size = sizeof(client1_addr);
     client1_sock = accept(server_sock, (struct sockaddr*)&client1_addr, &addr_size);
-    if (client1_sock == INVALID_SOCKET) {
-        printf("Erreur accept client1: %d\n", WSAGetLastError());
-        closesocket(server_sock);
-        WSACleanup();
+    if (client1_sock == -1) {
+        perror("Erreur accept client1");
+        close(server_sock);
         return 1;
     }
-    
+
     // get the client1 name
     recv(client1_sock, n1, sizeof(n1), 0);
 
@@ -155,14 +144,13 @@ int main( int argc , char *argv[] )
 
     addr_size = sizeof(client2_addr);
     client2_sock = accept(server_sock, (struct sockaddr*)&client2_addr, &addr_size);
-    if (client2_sock == INVALID_SOCKET) {
-        printf("Erreur accept client2: %d\n", WSAGetLastError());
-        closesocket(client1_sock);
-        closesocket(server_sock);
-        WSACleanup();
+    if (client2_sock == -1) {
+        perror("Erreur accept client2");
+        close(client1_sock);
+        close(server_sock);
         return 1;
     }
-    
+
     // get the client2 name
     recv(client2_sock, n2, sizeof(n2), 0);
 
@@ -185,13 +173,11 @@ int main( int argc , char *argv[] )
     game( c );
 
     // Close connections
-    closesocket(client1_sock);
-    closesocket(client2_sock);
-    closesocket(server_sock);
+    close(client1_sock);
+    close(client2_sock);
+    close(server_sock);
 
     free(c.mat);
-
-    WSACleanup();
 
 	return 0;
 
@@ -212,7 +198,7 @@ void displayConf( Conf c )
             printf("|%c",elt(c.mat,i,j));
         printf("|\n");
     }
-    printf("\tscore = %d\n",c.score);
+    printf("\tscore = %f\n",c.score);
 }
 
 
@@ -224,25 +210,25 @@ void game( Conf c )
     int i,j,k;
     int clt;
     int rbytes;
-    DWORD timeout_ms = tmo * 1000 + 20;  // timeout en millisecondes
+    struct timeval timeout;
+    timeout.tv_sec = tmo;
+    timeout.tv_usec = 20000; // 20 ms
 
     // set timeout option for blocking receive operations on client1 socket
-    if (setsockopt(client1_sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout_ms, sizeof(timeout_ms)) < 0) {
-        printf("Error setting SO_RCVTIMEO on client1_sock: %d\n", WSAGetLastError());
-        closesocket(client1_sock);
-        closesocket(client2_sock);
-        closesocket(server_sock);
-        WSACleanup();
+    if (setsockopt(client1_sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout)) < 0) {
+        perror("Error setting SO_RCVTIMEO on client1_sock");
+        close(client1_sock);
+        close(client2_sock);
+        close(server_sock);
         exit(EXIT_FAILURE);
     }
 
     // set timeout option for blocking receive operations on client2 socket
-    if (setsockopt(client2_sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout_ms, sizeof(timeout_ms)) < 0) {
-        printf("Error setting SO_RCVTIMEO on client2_sock: %d\n", WSAGetLastError());
-        closesocket(client1_sock);
-        closesocket(client2_sock);
-        closesocket(server_sock);
-        WSACleanup();
+    if (setsockopt(client2_sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout)) < 0) {
+        perror("Error setting SO_RCVTIMEO on client2_sock");
+        close(client1_sock);
+        close(client2_sock);
+        close(server_sock);
         exit(EXIT_FAILURE);
     }
 
@@ -254,103 +240,72 @@ void game( Conf c )
         displayConf( c );
 
         if ( tour == 'X' ) {
-
             // wait to get a move from client1
             rbytes = recv(client1_sock, buf, sizeof(buf), 0);
-            if (rbytes == SOCKET_ERROR) {
-               int err = WSAGetLastError();
-               if (err == WSAETIMEDOUT) {
-                  printf("Receive from client1 timed out\n");
-                  stop = 3;
-                  cout = -1;
-               }
-               else {
-                 printf("Error during recv from client1: %d\n", err);
-                 closesocket(client1_sock);
-                 closesocket(client2_sock);
-                 closesocket(server_sock);
-                 WSACleanup();
-                 exit(EXIT_FAILURE);
-               }
+            if (rbytes == -1) {
+                perror("Error during recv from client1");
+                printf("Receive from client1 timed out or error\n");
+                stop = 3;
+                cout = -1;
             }
-            else
-               if (rbytes == 0) {
-                  printf("Connection closed by client1\n");
-                  stop = 3;
-                  cout = -1;
-               }
-               else {
-                  buf[ sizeof(buf)-1 ] = '\0';
-                  sscanf(buf, "%d %d", &i , &j);
-                  printf("X at <%d,%d>\n", i , j);
-                  if ( i >= 0 && i < N && j >= 0 && j < N && elt(c.mat,i,j) == ' ' ) {
-                     elt(c.mat,i,j) = 'X';
-
-                     // inform the other player of the move that has just been made
-                     sprintf(buf, "X at %d %d\n", i,j);
-                     send(client2_sock, buf, strlen(buf)+1, 0);
-
+            else if (rbytes == 0) {
+                printf("Connection closed by client1\n");
+                stop = 3;
+                cout = -1;
+            }
+            else {
+                buf[ sizeof(buf)-1 ] = '\0';
+                sscanf(buf, "%d %d", &i , &j);
+                printf("X at <%d,%d>\n", i , j);
+                if ( i >= 0 && i < N && j >= 0 && j < N && elt(c.mat,i,j) == ' ' ) {
+                    elt(c.mat,i,j) = 'X';
+                    // inform the other player of the move that has just been made
+                    sprintf(buf, "X at %d %d\n", i,j);
+                    send(client2_sock, buf, strlen(buf)+1, 0);
                 }
-                  else {
-                     printf("*** illegal move from player X ***\n");
-                     stop = 3;
-                     cout = -1;
-                  }
-               }
+                else {
+                    printf("*** illegal move from player X ***\n");
+                    stop = 3;
+                    cout = -1;
+                }
+            }
         }
-
         else {
-
             // wait to get a move from client2
             rbytes = recv(client2_sock, buf, sizeof(buf), 0);
-            if (rbytes == SOCKET_ERROR) {
-               int err = WSAGetLastError();
-               if (err == WSAETIMEDOUT) {
-                  printf("Client2 timed out\n");
-                  stop = 4;
-                  cout = 1;
-               }
-               else {
-                 printf("client2_sock : Error during recv: %d\n", err);
-                 closesocket(client1_sock);
-                 closesocket(client2_sock);
-                 closesocket(server_sock);
-                 WSACleanup();
-                 exit(EXIT_FAILURE);
-               }
+            if (rbytes == -1) {
+                perror("Error during recv from client2");
+                printf("Client2 timed out or error\n");
+                stop = 4;
+                cout = 1;
             }
-            else
-               if (rbytes == 0) {
-                  printf("Connection closed by client2\n");
-                  stop = 4;
-                  cout = 1;
-               }
-               else {
-                  buf[ sizeof(buf)-1 ] = '\0';
-                  sscanf(buf, "%d %d", &i , &j);
-                  printf("O at <%d,%d>\n", i , j);
-                  if ( i >= 0 && i < N && j >= 0 && j < N && elt(c.mat,i,j) == ' ' ) {
-                     elt(c.mat,i,j) = 'O';
-
-                     // inform the other player (client1) of the move that has just been made
-                     sprintf(buf, "O at %d %d\n", i,j);
-                     send(client1_sock, buf, strlen(buf)+1, 0);
-
+            else if (rbytes == 0) {
+                printf("Connection closed by client2\n");
+                stop = 4;
+                cout = 1;
+            }
+            else {
+                buf[ sizeof(buf)-1 ] = '\0';
+                sscanf(buf, "%d %d", &i , &j);
+                printf("O at <%d,%d>\n", i , j);
+                if ( i >= 0 && i < N && j >= 0 && j < N && elt(c.mat,i,j) == ' ' ) {
+                    elt(c.mat,i,j) = 'O';
+                    // inform the other player (client1) of the move that has just been made
+                    sprintf(buf, "O at %d %d\n", i,j);
+                    send(client1_sock, buf, strlen(buf)+1, 0);
                 }
-                  else {
-                     printf("*** illegal move from player O ***\n");
-                     stop = 4;
-                     cout = 1;
-                  }
-               }
-
+                else {
+                    printf("*** illegal move from player O ***\n");
+                    stop = 4;
+                    cout = 1;
+                }
+            }
         }
 
         if ( terminale( c , &cout ) )
             stop = 1;
         else
             tour = ( tour == 'X' ? 'O' : 'X' );
-
     } // end_while (Main Loop)
 
     displayConf( c );
