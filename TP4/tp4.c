@@ -7,7 +7,7 @@ Enhanced Taquin 15 (4x4) – A* and WA* with step-by-step animation in GTK
 
 Compile (WSL with GTK):
   sudo apt install libgtk-3-dev
-  gcc taquin_gui.c -o taquin `pkg-config --cflags --libs gtk+-3.0` -O2
+  gcc tp4.c -o taquin `pkg-config --cflags --libs gtk+-3.0` -O2
   ./taquin
 */
 
