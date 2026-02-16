@@ -38,7 +38,7 @@ int dj[8] = {+1,+1,0,-1,-1,-1,0,+1};
 int tmo = 10;   // temps max par coup (sec)
 int N = 7;     // taille du plateau
 int M = 4;     // alignement gagnant
-int HMAX = 2;  // profondeur max
+int HMAX = 3;  // profondeur max
 
 clock_t start_time; // pour le timeout
 
@@ -66,16 +66,16 @@ int main(int argc, char *argv[])
     fgets(pl_name, 40, stdin);
     pl_name[strcspn(pl_name, "\n")] = 0;
 
-    printf("Server IP addr ? (127.0.0.1) : ");
+    printf("Server IP addr ? (192.168.23.158) : ");
     fgets(ip_serv, 20 , stdin);
     ip_serv[strcspn(ip_serv, "\n")] = 0;
     if (strlen(ip_serv) < 7)
-        strcpy(ip_serv, "127.0.0.1");
+        strcpy(ip_serv, "192.168.23.158");
 
-    printf("Server Port Number ? (12345) : ");
+    printf("Server Port Number ? (8080) : ");
     fgets(buf, 20 , stdin);
     if (strlen(buf) < 2)
-        port_serv = 12345;
+        port_serv = 8080;
     else
         sscanf(buf, " %d", &port_serv);
 
